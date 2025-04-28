@@ -1,0 +1,7 @@
+langchain
+chromadb
+huggingface-hub
+sentence-transformers
+pymupdf
+langchain_ollama
+numpy
