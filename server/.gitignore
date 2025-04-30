@@ -175,4 +175,5 @@ cython_debug/
 
 chroma_db/
 pdfs/
+temp_images/
 

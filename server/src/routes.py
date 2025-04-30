@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile
 import os
-from main import ask_question
+import services
 
 router = APIRouter()
 
@@ -15,5 +15,9 @@ async def upload(file: UploadFile):
     return {"filename": file.filename, "filepath": file_path}
 
 @router.post("/question")
-def study_plan(question: str):
-    return ask_question(question)
+def question(question: str):
+    return services.ask_question(question)
+
+@router.post("/study-plan")
+def study_plan():
+    return services.create_study_plan()
