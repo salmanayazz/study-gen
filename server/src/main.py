@@ -1,6 +1,15 @@
 from fastapi import FastAPI
-from routes import router
+from src.routes import routes, study_plan
+from sqlmodel import SQLModel
+from contextlib import asynccontextmanager
+from src.db import engine
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    SQLModel.metadata.create_all(engine)
+    yield
 
-app.include_router(router)
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(routes.router)
+app.include_router(study_plan.router)

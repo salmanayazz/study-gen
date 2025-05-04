@@ -6,3 +6,6 @@ pymupdf
 langchain_ollama
 numpy
 fastapi[standard]
+sqlmodel
+python-dotenv
+psycopg2-binary>=2.9

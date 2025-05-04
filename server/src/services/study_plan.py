@@ -1,19 +1,13 @@
 import os
 import fitz
-from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.llms import Ollama
-from langchain.chains import RetrievalQA
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
-from ollama import Client
 import json
 import re
+from ollama import Client
+from fastapi import APIRouter, Depends
+from sqlmodel import Session, select
+from src.db import get_session
+from src.models.study_question import StudyQuestion
 
-embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-persist_dir = "./chroma_db"
-vectordb = Chroma(embedding_function=embedding_model, persist_directory=persist_dir)
-splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 client = Client(host='http://localhost:11434')
 
 question_generation_prompt = """
@@ -38,68 +32,15 @@ Return the output as a JSON array using the following structure:
     }
 ]
 
+If using the multiple choice format, the answer should be exactly equal to one of the options.
+
 The multiple choice questions should be trivia while the open-ended questions should be more conceptual.
 Focus on conceptual clarity and comprehension. Keep each question self-contained and understandable without the full document.
 Here is the page content:
 
 """
 
-def load_pdf_with_metadata(filepath):
-    documents = []
-    pdf = fitz.open(filepath)
-
-    for page_num in range(len(pdf)):
-        page = pdf.load_page(page_num)
-        text = page.get_text("text")
-        metadata = {
-            "source": os.path.basename(filepath),
-            "page_number": page_num + 1,
-        }
-
-        page_doc = Document(page_content=text, metadata=metadata)
-        split_docs = splitter.split_documents([page_doc])
-        documents.extend(split_docs)
-
-    return documents
-
-def ingest_pdfs_from_folder(folder_path):
-    all_docs = []
-    for filename in os.listdir(folder_path):
-        if filename.lower().endswith(".pdf"):
-            full_path = os.path.join(folder_path, filename)
-            print(f"Ingesting {filename}...")
-            docs = load_pdf_with_metadata(full_path)
-            all_docs.extend(docs)
-
-    if all_docs:
-        vectordb.add_documents(all_docs)
-        vectordb.persist()
-        print(f"Ingested {len(all_docs)} total chunks.")
-    else:
-        print("No PDF documents found.")
-
-def create_qa_chain():
-    retriever = vectordb.as_retriever(search_kwargs={"k": 5})
-    llm = Ollama(model="gemma3:4b-it-qat")
-    chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True
-    )
-    return chain
-
-def ask_question(query):
-    ingest_pdfs_from_folder("pdfs")
-    chain = create_qa_chain()
-    result = chain(query)
-    print(f"\nAnswer: {result['result']}")
-    print("\nSources:")
-    for doc in result['source_documents']:
-        meta = doc.metadata
-        print(f"- Page {meta['page_number']} from {meta['source']}")
-
-def create_study_plan():
+def create_study_plan_questions(study_plan_id: int, session: Session = Depends(get_session)):
     folder_path = "pdfs"
     questions = []
     temp_dir = "temp_images"
@@ -148,10 +89,29 @@ def create_study_plan():
 
                 try:
                     cleaned = re.sub(r'```json|```|```', '', question_set).strip()
-                    questions.append(json.loads(cleaned))
+                    parsed_questions = json.loads(cleaned)
+
+                    if isinstance(parsed_questions, list):
+                        questions.extend(parsed_questions)
+                    else:
+                        questions.append(parsed_questions)
+
                 except json.JSONDecodeError:
                     print("Failed to parse JSON response. Skipping this page.")
                     continue
-                
 
-    return questions
+                session.add_all([
+                    StudyQuestion(
+                        study_plan_id=study_plan_id,
+                        pdf_name=filename,
+                        page_number=page_num + 1,
+                        question=q.get("question"),
+                        answer=q.get("answer"),
+                        options=q.get("options") 
+                    )
+                    for q in questions
+                ])
+                session.commit()
+                questions.clear()
+                
+    
