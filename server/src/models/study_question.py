@@ -5,7 +5,7 @@ from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 
 if TYPE_CHECKING:
-    from models.study_plan import StudyPlan
+    from models.study_session import StudySession
 
 class StudyQuestion(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -15,8 +15,8 @@ class StudyQuestion(SQLModel, table=True):
     answer: Optional[str] = None
     options: List[str] = Field(sa_column=Column(JSONB))
 
-    study_plan_id: Optional[int] = Field(default=None, foreign_key="studyplan.id")
-    study_plan: Optional["StudyPlan"] = Relationship(back_populates="study_questions")
+    study_session_id: Optional[int] = Field(default=None, foreign_key="studysession.id")
+    study_session: Optional["StudySession"] = Relationship(back_populates="study_questions")
 
 class StudyQuestionRead(BaseModel):
     id: int
