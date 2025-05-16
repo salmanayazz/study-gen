@@ -43,6 +43,43 @@ Here is the page content:
 
 """
 
+def study_question_validation_prompt(question, sample_answer, user_answer):
+    return """
+    You are an assistant that evaluates student answers.
+
+    You will be given:
+    - The original study question
+    - A sample answer
+    - The user's answer
+
+    Your task is to determine if the user's answer is **substantially correct** based on the sample answer. Minor wording differences or phrasing variations are acceptable as long as the core concepts and information match.
+
+    Respond **only** with one of the following JSON objects:
+
+    {
+    "correct": true
+    }
+
+    or
+
+    {
+    "correct": false
+    }
+
+    Do not provide explanations or any other output.
+
+    Now, evaluate the following:
+
+    Question:
+    """ + question + """
+
+    Sample Answer:
+    """ + sample_answer + """
+
+    User Answer:
+    """ + user_answer
+
+
 def create_study_plan_sessions_questions(study_plan_create: StudyPlanCreate, study_plan_id: int, session: Session = Depends(get_session)):
     study_sessions = create_study_plan_sessions(study_plan_create, study_plan_id, session)
     create_study_plan_questions(study_plan_create, study_sessions, session)
@@ -191,7 +228,21 @@ def create_study_plan_questions(study_plan_create: StudyPlanCreate, study_sessio
                 session.commit()
                 questions.clear()
                             
+def validate_study_question_answer(question, sample_answer, user_answer) -> bool:
+    response = client.chat(
+        model="gemma3:12b-it-qat",
+        messages=[
+            {
+                "role": "user",
+                "content": study_question_validation_prompt(question, sample_answer, user_answer),
+            }
+        ]
+    ) 
 
-                                
+    result = response['message']['content']
+    cleaned = re.sub(r'```json|```|```', '', result).strip()
+    parsed_result = json.loads(cleaned)
+    return parsed_result.get("correct")
+
 
     
