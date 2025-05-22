@@ -5,4 +5,6 @@ export default interface StudyQuestion {
     question: string;
     answer: string;
     options: string[];
+    user_answer: string;
+    correct: boolean;
 };

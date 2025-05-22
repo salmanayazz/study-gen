@@ -60,7 +60,7 @@ def update_study_question_answer(study_plan_id: int, study_session_id: int, stud
         raise HTTPException(status_code=404, detail="Study question not found")
     
     correct = False
-    if len(study_question.options) == 0:
+    if study_question.options == None or len(study_question.options) == 0:
         correct = validate_study_question_answer(study_question.question, study_question.answer, user_answer_update.user_answer)
     else:
         correct = study_question.answer == user_answer_update.user_answer

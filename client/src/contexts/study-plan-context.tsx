@@ -10,6 +10,7 @@ type ContextType = {
   getStudyPlan: (studyPlanId: number) => Promise<StudyPlan | null>;
   getStudySession: (studyPlanId: number, studySessionId: number) => Promise<StudySession | null>;
   getStudyQuestion: (studyPlanId: number, studySessionId: number, studyQuestionId: number) => Promise<StudyQuestion | null>;
+  answerStudyQuestion: (studyPlanId: number, studySessionId: number, studyQuestionId: number, userAnswer: string) => Promise<boolean | null>;
 };
 
 const StudyPlanContext = createContext<ContextType | undefined>(undefined);
@@ -23,8 +24,6 @@ export function StudyPlanProvider({ children }: { children: ReactNode }) {
       }
       const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan`);
       const data = await response.json();
-      console.log("response data")
-      console.log(data)
       setStudyPlanList(data);
       return data;
     }
@@ -41,12 +40,27 @@ export function StudyPlanProvider({ children }: { children: ReactNode }) {
       return (await getStudySession(studyPlanId, studySessionId))?.study_questions?.find((studyQuestion) => studyQuestion.id === studyQuestionId) || null;
     };
 
+  const answerStudyQuestion = async (studyPlanId: number, studySessionId: number, studyQuestionId: number, userAnswer: string): Promise<boolean | null> => {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan/${studyPlanId}/study-session/${studySessionId}/study-question/${studyQuestionId}/user-answer`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_answer: userAnswer
+      })
+    });
+
+    return (await response.json()).correct
+  }
+
   return (
     <StudyPlanContext.Provider value={{ 
       getStudyPlanList,
       getStudyPlan,
       getStudySession,
       getStudyQuestion,
+      answerStudyQuestion
     }}>
       {children}
     </StudyPlanContext.Provider>
