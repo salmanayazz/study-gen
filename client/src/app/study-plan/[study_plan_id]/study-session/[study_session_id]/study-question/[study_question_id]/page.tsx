@@ -1,41 +1,37 @@
-"use client";
-
-import { useParams } from "next/navigation";
-import { useStudyPlan } from "@/contexts/study-plan-context";
-import { useEffect, useState } from "react";
+import StudyPlan from "@/types/study-plan";
+import StudySession from "@/types/study-session";
 import StudyQuestion from "@/types/study-question";
+import StudyQuestionForm from "./StudyQuestionForm";
 
+export async function fetchStudyQuestion(study_plan_id: number, study_session_id: number, study_question_id: number): Promise<StudyQuestion> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan`);
+  return (await res.json()).find(
+    (studyPlan: StudyPlan) => studyPlan.id === study_plan_id
+  ).study_sessions.find(
+    (studySession: StudySession) => studySession.id === study_session_id
+  ).study_questions.find(
+    (studyQuestion: StudyQuestion) => studyQuestion.id === study_question_id
+  );
+}
 
+export async function answerStudyQuestion(studyPlanId: number, studySessionId: number, studyQuestionId: number, userAnswer: string): Promise<boolean | null> {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan/${studyPlanId}/study-session/${studySessionId}/study-question/${studyQuestionId}/user-answer`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_answer: userAnswer
+      })
+    });
 
-export default function StudyQuestionPage() {
-    const { study_plan_id, study_session_id, study_question_id } = useParams();
-    const { getStudyQuestion, answerStudyQuestion } = useStudyPlan();
+    return (await response.json()).correct;
+}
 
-    const [studyQuestion, setStudyQuestion] = useState<StudyQuestion | null>();
-    const [userAnswer, setUserAnswer] = useState<string>("")
+export default async function StudyQuestionPage({ params }: { params: Promise<{ study_plan_id: string, study_session_id: string, study_question_id: string }> }) {
+    const { study_plan_id, study_session_id, study_question_id } = await params;
 
-    useEffect(() => {
-        const fetchQuestion = async () => {
-            setStudyQuestion(await getStudyQuestion(Number(study_plan_id), Number(study_session_id), Number(study_question_id)));
-        }
-        fetchQuestion();
-    }, [])
-
-    useEffect(() => {
-        console.log(studyQuestion)
-    }, [studyQuestion])
-
-    const onClick = async (option: string) => {
-        const result = await answerStudyQuestion(Number(study_plan_id), Number(study_session_id), Number(study_question_id), option)
-
-        if (studyQuestion) {
-            const copy: StudyQuestion = {...studyQuestion};
-            copy.user_answer = option;
-            copy.correct =  result ? true : false;
-            setStudyQuestion(copy)
-        }
-
-    } 
+    const studyQuestion = await fetchStudyQuestion(Number(study_plan_id), Number(study_session_id), Number(study_question_id));
 
     return (
         <div className="flex flex-col">
@@ -43,23 +39,12 @@ export default function StudyQuestionPage() {
                 {studyQuestion?.question}
             </h2>
 
-            {!studyQuestion?.options || studyQuestion?.options.length == 0 ? (
-                <>
-                    <textarea onChange={(e) => setUserAnswer(e.target.value)}/>
-                    <button onClick={() => onClick(userAnswer)} className={studyQuestion && studyQuestion.correct ? (studyQuestion?.correct ? "bg-green-600" : "bg-red-600") : ""}>
-                        Submit
-                    </button>
-                </>
-            ) : (
-                studyQuestion?.options.map((option) => (
-                    <button key={option} onClick={() => onClick(option)} className={studyQuestion.user_answer == option ? (studyQuestion.correct ? "bg-green-600" : "bg-red-600") : ""}>
-                        <h3 >
-                            {option}
-                        </h3>
-                    </button>
-                ))
-            )}
-
+            <StudyQuestionForm
+                studyPlanId={Number(study_plan_id)}
+                studySessionId={Number(study_session_id)}
+                studyQuestionId={Number(study_question_id)}
+                studyQuestion={studyQuestion}
+            />
             
         </div>
     );
