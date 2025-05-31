@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from src.routes import routes, study_plan
+from src.routes import routes, study_plan, file
 from sqlmodel import SQLModel
 from contextlib import asynccontextmanager
 from src.db import engine
@@ -29,3 +29,4 @@ print("FRONTEND_URL", os.getenv("FRONTEND_URL"))
 
 app.include_router(routes.router)
 app.include_router(study_plan.router)
+app.include_router(file.router)
