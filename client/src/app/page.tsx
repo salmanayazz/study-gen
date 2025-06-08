@@ -6,6 +6,20 @@ async function fetchStudyPlans(): Promise<StudyPlan[]> {
   return res.json();
 }
 
+async function createStudyPlan(examDate: Date, timeAllocated: int[], files: string[]): Promise<void> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      user_answer: userAnswer
+    })
+  })
+
+  return res.json();
+}
+
 export default async function Home() {
   const studyPlans = await fetchStudyPlans();
 

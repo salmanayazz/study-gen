@@ -24,7 +24,7 @@ class StudyPlanRead(BaseModel):
 class StudyPlanCreate(BaseModel):
     date: datetime
     time_allocated: List[int] = []
-    files: List[str] = []
+    files: List[int] = []
 
     class Config:
         orm_mode = True

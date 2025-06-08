@@ -24,8 +24,8 @@ def create_study_plan(study_plan_create: StudyPlanCreate, background_tasks: Back
     session.commit()
     session.refresh(study_plan)
 
-    study_sessions = create_study_plan_sessions(study_plan_create, study_plan.id, session)
-    background_tasks.add_task(create_study_plan_questions, study_plan_create, study_sessions, session)
+    create_study_plan_sessions(study_plan_create, study_plan.id, session)
+    background_tasks.add_task(create_study_plan_questions, study_plan.id, session)
     
     return {"study_plan_id": study_plan.id}
 

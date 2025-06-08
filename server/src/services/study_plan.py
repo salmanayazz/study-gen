@@ -3,13 +3,16 @@ import fitz
 import json
 import re
 from ollama import Client
-from fastapi import Depends
-from sqlmodel import Session
+from fastapi import Depends, HTTPException
+from sqlmodel import Session, select
 from src.db import get_session
 from src.models.study_question import StudyQuestion
 from src.models.study_plan import StudyPlanCreate
 from src.models.study_session import StudySession
+from src.models.study_session_file_link import StudySessionFileLink
+from src.models.file import File
 from typing import List
+from sqlalchemy.orm import selectinload
 
 client = Client(host='http://localhost:11434')
 
@@ -79,25 +82,22 @@ def study_question_validation_prompt(question, sample_answer, user_answer):
     User Answer:
     """ + user_answer
 
-
-def create_study_plan_sessions_questions(study_plan_create: StudyPlanCreate, study_plan_id: int, session: Session = Depends(get_session)):
-    study_sessions = create_study_plan_sessions(study_plan_create, study_plan_id, session)
-    create_study_plan_questions(study_plan_create, study_sessions, session)
-
 def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id: int, session: Session = Depends(get_session)):
     time_allocated = study_plan_create.time_allocated
-    files = study_plan_create.files
     study_sessions = []
-    
+    files = []
+
     total_pages = 0
-    folder_path = "pdfs"
-    sorted_files = sorted(os.listdir(folder_path), key=lambda x: x.lower())
-    for filename in sorted_files:
-        if filename in files:
-            if filename.lower().endswith(".pdf"):
-                full_path = os.path.join(folder_path, filename)
-                pdf = fitz.open(full_path)
-                total_pages += pdf.page_count
+    folder_path = "pdfs/"
+    for fileId in study_plan_create.files:
+        files.append(session.get(File, fileId))
+        
+        if not files[-1]:
+            raise HTTPException(status_code=404, detail="File not found")
+    
+        full_path = os.path.join(folder_path + files[-1].path, files[-1].name)
+        pdf = fitz.open(full_path)
+        total_pages += pdf.page_count
 
     total_time = sum(time_allocated)
     pages_per_minute = total_pages / total_time if total_time > 0 else 0
@@ -107,52 +107,66 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
     current_file_page = 0
     for i in range(len(pages_per_session)):
         study_session = StudySession(
-            study_plan_id = study_plan_id,
-            duration = time_allocated[i],
-            files = [],
-            page_start = 0,
-            page_end = 0
+            study_plan_id=study_plan_id,
+            duration=time_allocated[i],
+            page_start=0,
+            page_end=0
         )
 
-        for filename in sorted_files:
-            if filename in files and filename.lower().endswith(".pdf"):
-                full_path = os.path.join(folder_path, filename)
-                pdf = fitz.open(full_path)
+        session.add(study_session)
+        session.commit()
+        session.refresh(study_session)
 
-                study_session.files.append(filename)
-                if len(study_session.files) == 1:
-                    study_session.page_start = current_file_page
+        for file in files:
+            full_path = os.path.join(folder_path + file.path, file.name)
+            pdf = fitz.open(full_path)
 
-                if pages_per_session[i] - (pdf.page_count - current_file_page) >= 0:
-                    pages_per_session[i] -= (pdf.page_count - current_file_page)
-                    sorted_files.pop(0)
-                    current_file_page = 0
+            link = StudySessionFileLink(study_session_id=study_session.id, file_id=file.id)
+            session.add(link)
 
-                    if pages_per_session[i] == 0:
-                        study_session.page_end = pdf.page_count
-                        break
-                else:
-                    study_session.page_end = pages_per_session[i] + current_file_page
-                    current_file_page = pages_per_session[i] + current_file_page + 1
+            if len(files) == 1:
+                study_session.page_start = current_file_page
+
+            if pages_per_session[i] - (pdf.page_count - current_file_page) >= 0:
+                pages_per_session[i] -= (pdf.page_count - current_file_page)
+                current_file_page = 0
+
+                if pages_per_session[i] == 0:
+                    study_session.page_end = pdf.page_count
                     break
-        
+            else:
+                study_session.page_end = pages_per_session[i] + current_file_page
+                current_file_page = pages_per_session[i] + current_file_page + 1
+                break
+
         session.add(study_session)
         session.commit()
         session.refresh(study_session)
         study_sessions.append(study_session)
+
     return study_sessions
 
-def create_study_plan_questions(study_plan_create: StudyPlanCreate, study_sessions: List[StudySession], session: Session = Depends(get_session)):
-    folder_path = "pdfs"
+def create_study_plan_questions(study_plan_id: int, session: Session = Depends(get_session)):
+    folder_path = "pdfs/"
     questions = []
     temp_dir = "temp_images"
     os.makedirs(temp_dir, exist_ok=True)
 
-    for filename in os.listdir(folder_path):
-        if filename.lower().endswith(".pdf") and filename in study_plan_create.files:
-            full_path = os.path.join(folder_path, filename)
+    study_sessions = session.exec(
+        select(StudySession)
+        .where(StudySession.study_plan_id == study_plan_id)
+        .options(selectinload(StudySession.files))
+    ).all()
+
+    print(study_sessions)
+
+    folder_path = "pdfs/"
+    for study_session in study_sessions:
+        for file in study_session.files:
+            full_path = os.path.join(folder_path + file.path, file.name)
+
             pdf = fitz.open(full_path)
-            print(f"Processing {filename}...")
+            print(f"Processing {file.name}...")
 
             for page_num in range(len(pdf)):
                 page = pdf.load_page(page_num)
@@ -204,20 +218,17 @@ def create_study_plan_questions(study_plan_create: StudyPlanCreate, study_sessio
                     print("Failed to parse JSON response. Skipping this page.")
                     continue
                 
-                id = 0
-                for study_session in study_sessions:
-                    if filename in study_session.files:
-                        
-                        if filename == study_session.files[-1]:
-                            if study_session.page_end >= page_num + 1:
-                                id = study_session.id
-                        else:
-                            id = study_session.id
+                id = 0 
+                if file.name == study_session.files[-1]:
+                    if study_session.page_end >= page_num + 1:
+                        id = study_session.id
+                else:
+                    id = study_session.id
 
                 session.add_all([
                     StudyQuestion(
                         study_session_id = id,
-                        pdf_name = filename,
+                        pdf_name = file.name,
                         page_number = page_num + 1,
                         question = q.get("question"),
                         answer = q.get("answer"),
@@ -225,6 +236,8 @@ def create_study_plan_questions(study_plan_create: StudyPlanCreate, study_sessio
                     )
                     for q in questions
                 ])
+                
+                session.add(study_session)
                 session.commit()
                 questions.clear()
                             
