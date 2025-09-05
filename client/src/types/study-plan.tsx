@@ -1,6 +1,6 @@
-import StudySession from './study-session';
+import type { StudySession } from './study-session';
 
-export default interface StudyPlan {
+export interface StudyPlan {
     id: number;
     date: Date;
     study_sessions: StudySession[];

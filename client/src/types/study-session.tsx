@@ -1,6 +1,6 @@
-import StudyQuestion from './study-question';
+import type { StudyQuestion } from './study-question';
 
-export default interface StudySession {
+export interface StudySession {
     id: number;
     duration: number;
     files: string[];

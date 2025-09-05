@@ -1,12 +1,13 @@
 "use client";
 
-import { fetchFiles } from "@/app/file/page";
-import File from "@/types/file";
+import { fetchFiles } from "@/app/course/[course_id]/file/page";
+import type { File } from "@/types/file";
 import { useEffect, useState } from "react";
+import { useParams } from 'next/navigation';
 
-async function createStudyPlan(date: Date, timeAllocated: number[], files: File[]) {
+async function createStudyPlan(course_id: number, date: Date, timeAllocated: number[], files: File[]) {
     console.log(files.map((file) => { return file.id }))
-    await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan`, {
+    await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/course/${course_id}/study-plan`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -19,8 +20,10 @@ async function createStudyPlan(date: Date, timeAllocated: number[], files: File[
     });
 }
 
-
 export default function Create() {
+    const params = useParams();
+    const course_id = Number(params.course_id);
+
     const [files, setFiles] = useState<File[]>();
     const [includedFiles, setIncludedFiles] = useState<number[]>([]);
     const [examDate, setExamDate] = useState<Date>();
@@ -28,7 +31,7 @@ export default function Create() {
 
     useEffect(() => {
         const handleFetchFiles = async () => {
-            setFiles(await fetchFiles());
+            setFiles(await fetchFiles(course_id));
         }
         handleFetchFiles();
     }, [])
@@ -75,7 +78,7 @@ export default function Create() {
         if (!examDate || !files) {
             return;
         }
-        createStudyPlan(examDate, timeAllocated, files)
+        createStudyPlan(course_id, examDate, timeAllocated, files)
     }
 
     return (

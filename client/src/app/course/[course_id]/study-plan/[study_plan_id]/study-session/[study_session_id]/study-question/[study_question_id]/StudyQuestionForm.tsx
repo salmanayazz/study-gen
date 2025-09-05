@@ -1,23 +1,24 @@
 'use client';
 
-import StudyQuestion from "@/types/study-question"
+import type { StudyQuestion } from "@/types/study-question";
 import { useState } from "react";
 import { answerStudyQuestion, fetchStudyQuestion } from "./page";
 
 interface StudyQuestionFormProps {
-    studyPlanId: number
-    studySessionId: number
-    studyQuestionId: number
-    studyQuestion: StudyQuestion
+    courseId: string
+    studyPlanId: string
+    studySessionId: string
+    studyQuestionId: string
+    studyQuestion?: StudyQuestion
 }
 
-export default function StudyQuestionForm({ studyPlanId, studySessionId, studyQuestionId, studyQuestion }: StudyQuestionFormProps) {
+export default function StudyQuestionForm({ courseId, studyPlanId, studySessionId, studyQuestionId, studyQuestion }: StudyQuestionFormProps) {
     const [userAnswer, setUserAnswer] = useState("");
-    const [studyQuestionState, setStudyQuestionState] = useState(studyQuestion);
+    const [studyQuestionState, setStudyQuestionState] = useState<StudyQuestion | undefined>(studyQuestion);
 
     const onClick = async (option: string) => {
-        await answerStudyQuestion(Number(studyPlanId), Number(studySessionId), Number(studyQuestionId), option);
-        setStudyQuestionState(await fetchStudyQuestion(Number(studyPlanId), Number(studySessionId), Number(studyQuestionId)));
+        await answerStudyQuestion(courseId, studyPlanId, studySessionId, studyQuestionId, option);
+        setStudyQuestionState(await fetchStudyQuestion(courseId, studyPlanId, studySessionId, studyQuestionId));
     }
 
     return (

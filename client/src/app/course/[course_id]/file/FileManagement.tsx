@@ -1,17 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { deleteFile, uploadFile, fetchFiles } from "./page";
-import File from "@/types/file";
+import type { File } from "@/types/file";
 
 interface FileManagementProps {
-    files: File[]
+    course_id: number
 }
 
 export default function FileManagement({
-    files
+    course_id,
 }: FileManagementProps) {
-    const [filesState, setFilesState] = useState(files);
+    const [filesState, setFilesState] = useState<File[]>([]);
+
+    useEffect(() => {
+        async function handleFetchFiles() {
+            const files = await fetchFiles(course_id);
+            setFilesState(files);
+        }
+        handleFetchFiles();
+    }, [course_id]);
 
     const handleFileUpload = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -26,16 +34,16 @@ export default function FileManagement({
             const name = file.name;
             const path = filePath.value;
 
-            await uploadFile(name, path, file);
-            setFilesState(await fetchFiles());
+            await uploadFile(course_id, name, path, file);
+            setFilesState(await fetchFiles(course_id));
         } else {
             alert("Please select a file.");
         }
     };
 
     const handleDelete = async (fileId: number) => {
-        deleteFile(fileId)
-        setFilesState(await fetchFiles());
+        deleteFile(course_id, fileId)
+        setFilesState(await fetchFiles(course_id));
     }
 
     return (

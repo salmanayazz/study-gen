@@ -1,4 +1,4 @@
-export default interface StudyQuestion {
+export interface StudyQuestion {
     id: number;
     pdf_name: string;
     page_number: number;

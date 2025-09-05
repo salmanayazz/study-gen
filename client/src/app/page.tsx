@@ -1,37 +1,20 @@
-import StudyPlan from "../types/study-plan";
+import type { Course } from "@/types/course";
 import Link from 'next/link'
 
-async function fetchStudyPlans(): Promise<StudyPlan[]> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan`);
-  return res.json();
-}
-
-async function createStudyPlan(examDate: Date, timeAllocated: int[], files: string[]): Promise<void> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/study-plan`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      user_answer: userAnswer
-    })
-  })
-
+async function fetchCourses(): Promise<Course[]> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/course`);
   return res.json();
 }
 
 export default async function Home() {
-  const studyPlans = await fetchStudyPlans();
+  const courses = await fetchCourses();
 
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Link href="file">
-          <button>See Files</button>
-        </Link>
-        {studyPlans.map((studyPlan: StudyPlan) => (
-          <Link key={studyPlan.id} href={`/study-plan/${studyPlan.id}`}>
-            <h2 className="text-2xl font-bold">{studyPlan.id}</h2>
+    <div>
+      <main>
+        {courses.map((course: Course) => (
+          <Link key={course.id} href={`/course/${course.id}`}>
+            <h2 className="text-2xl font-bold">{course.id}</h2>
           </Link>
         ))}
       </main>

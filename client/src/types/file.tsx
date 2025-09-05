@@ -1,4 +1,4 @@
-export default interface File {
+export interface File {
     id: number;
     name: string;
     path: string | null;

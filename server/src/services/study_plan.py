@@ -18,8 +18,8 @@ client = Client(host='http://localhost:11434')
 
 question_generation_prompt = """
 You are an exam question generator. Given the content of a single textbook or lecture page 
-(which may include diagrams, data, and written explanation), generate unique exam-style (2-3 would be ideal)
-questions that a teacher might ask based on the material.
+(which may include diagrams, data, and written explanation), generate unique exam-style (GENERATE ONLY ONE QUESTION)
+Do not ask questions about related material not covered. Questions should be that which a teacher might ask based on the material.
 Each question should include:
     - The question text.
     - The correct answer.
@@ -158,9 +158,6 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
         .options(selectinload(StudySession.files))
     ).all()
 
-    print(study_sessions)
-
-    folder_path = "pdfs/"
     for study_session in study_sessions:
         for file in study_session.files:
             full_path = os.path.join(folder_path + file.path, file.name)
@@ -173,7 +170,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                 page_content = page.get_text("text")
                 images = page.get_images(full=True)
 
-                print(f"Page {page_num + 1} content: {page_content}")
+                print(f"Page {page_num + 1}")
 
                 image_paths = []
                 for img_info in images:
@@ -187,7 +184,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                     image_paths.append(image_path)
 
                 response = client.chat(
-                    model="gemma3:4b-it-qat",
+                    model="gemma3:12b",
                     messages=[
                         {
                             "role": "user",
@@ -201,9 +198,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                     os.remove(image_path)
 
                 image_paths.clear()
-
                 question_set = response['message']['content']
-                print(f"\nGenerated Questions:\n{question_set}\n")
 
                 try:
                     cleaned = re.sub(r'```json|```|```', '', question_set).strip()
@@ -243,7 +238,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                             
 def validate_study_question_answer(question, sample_answer, user_answer) -> bool:
     response = client.chat(
-        model="gemma3:12b-it-qat",
+        model="gemma3:12b",
         messages=[
             {
                 "role": "user",

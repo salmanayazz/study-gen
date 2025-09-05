@@ -4,30 +4,31 @@ from src.db import get_session
 from sqlmodel import Session, select
 import src.models.file as file_model
 from typing import Optional
-import re
 
 router = APIRouter()
 
 folder_path = "pdfs/"
 
-@router.get("/file")
-async def get_files(session: Session = Depends(get_session)):
-    return session.exec(select(file_model.File)).all()
+@router.get("/course/{course_id}/file")
+async def get_files(course_id: int, session: Session = Depends(get_session)):
+    print("Getting files for course_id:", course_id)
+    return session.exec(select(file_model.File).where(file_model.File.course_id == course_id)).all()
 
-@router.post("/file", status_code=status.HTTP_201_CREATED)
+@router.post("/course/{course_id}/file", status_code=status.HTTP_201_CREATED)
 async def upload(
+    course_id: int, 
     name: str = Form(...), 
     path: Optional[str] = Form(None), 
     file_data: UploadFile = FastAPIFile(...), 
     session: Session = Depends(get_session)
 ):
-    if len(path) > 0 and path[-1] != "/":
-        path += "/"
+    base_folder = os.path.abspath(folder_path +  "/" + str(course_id))
+    full_path = os.path.abspath(os.path.join(base_folder, path, name))
 
-    if len(path) > 0 and (path[0] == "/" or path[0:2] == ".."):
+    if not full_path.startswith(base_folder):
         raise HTTPException(status_code=400, detail="Invalid path")
 
-    statement = select(file_model.File).where(file_model.File.path == path and file_model.File.name == name)
+    statement = select(file_model.File).where((file_model.File.path == path) & (file_model.File.name == name))
     file = session.exec(statement).first()
     
     if file:
@@ -41,14 +42,15 @@ async def upload(
 
     file = file_model.File(
         name=name,
-        path=path
+        path=path,
+        course_id=course_id
     )
     session.add(file)
     session.commit()
 
     return {"message": "Successfully uploaded file"}
 
-@router.delete("/file/{file_id}")
+@router.delete("/course/{course_id}/file/{file_id}")
 async def delete_file(file_id: int, session: Session = Depends(get_session)):
     statement = select(file_model.File).where(file_model.File.id == file_id)
     file = session.exec(statement).first()
