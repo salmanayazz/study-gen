@@ -20,6 +20,22 @@ async def get_courses(session: Session = Depends(get_session)):
     print(courses)
     return courses
 
+@router.get("/course/{course_id}", response_model=CourseRead)
+async def get_course(course_id: int, session: Session = Depends(get_session)):
+    course = session.exec(
+        select(Course)
+        .where(Course.id == course_id)
+        .options(
+            selectinload(Course.files),
+            selectinload(Course.study_plans)
+        )
+    ).first()
+
+    if not course:
+        return {"message": "Course not found"}
+
+    return course
+
 @router.post("/course", status_code=201)
 async def create_course(course: CourseCreate, session: Session = Depends(get_session)):
     course = Course(
