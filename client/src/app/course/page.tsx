@@ -20,7 +20,7 @@ export default async function Courses() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-4xl font-bold mb-6">Courses</h1>
-      <Link href="/course/new">
+      <Link href="/course/create">
         <Button variant="outline" className="mb-6">
           <FiPlus /> New Course
         </Button>
@@ -29,7 +29,7 @@ export default async function Courses() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {courses?.map((course: Course) => (
           <Link key={course.id} href={`/course/${course.id}`}>
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer">
+            <Card className="cursor-pointer">
               <CardHeader>
                 <CardTitle className="text-xl font-bold">{course.name}</CardTitle>
               </CardHeader>

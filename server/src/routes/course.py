@@ -23,8 +23,7 @@ async def get_courses(session: Session = Depends(get_session)):
 @router.post("/course", status_code=201)
 async def create_course(course: CourseCreate, session: Session = Depends(get_session)):
     course = Course(
-        name=course.name,
-        description=course.description
+        name=course.name
     )
 
     session.add(course)
