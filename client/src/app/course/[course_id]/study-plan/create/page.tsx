@@ -6,17 +6,16 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 
-async function createStudyPlan(course_id: number, date: Date, timeAllocated: number[], files: File[]) {
-  console.log(files.map((file) => file.id));
+async function createStudyPlan(course_id: number, date: Date, timeAllocated: number[], files: number[]) {
   await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/course/${course_id}/study-plan`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       date: date,
       time_allocated: timeAllocated,
-      files: files.map((file) => file.id)
+      files: files
     })
   });
 }
@@ -39,7 +38,7 @@ export default function Create() {
     if (!examDate) return;
 
     const diffDays = Math.abs((examDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    setTimeAllocated(Array(Math.ceil(diffDays) + 1).fill(0));
+    setTimeAllocated(Array(Math.ceil(diffDays) + 2).fill(0));
   }, [examDate]);
 
   const handleInclude = (fileId: number) => setIncludedFiles([...includedFiles, fileId]);
@@ -54,7 +53,7 @@ export default function Create() {
   };
   const handleCreateStudyPlan = () => { 
     if (examDate && files) {
-      createStudyPlan(course_id, examDate, timeAllocated, files); 
+      createStudyPlan(course_id, examDate, timeAllocated, includedFiles); 
     }
   };
 
@@ -82,7 +81,7 @@ export default function Create() {
           {timeAllocated.map((time, index) => (
             <Card key={index} className="p-2">
               <CardContent className="flex flex-col gap-2">
-                <CardTitle className="text-sm font-medium">{formatDate(examDate, index)}</CardTitle>
+                <CardTitle className="text-sm font-medium">{formatDate(examDate, index - timeAllocated.length + 2)}</CardTitle>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Hours:</span>
                   <Input

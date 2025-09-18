@@ -110,7 +110,7 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
     for i in range(len(pages_per_session)):
         study_session = StudySession(
             study_plan_id=study_plan_id,
-            date=study_plan_create.date + timedelta(days=i),
+            date=study_plan_create.date + timedelta(days = i - len(pages_per_session) + 1),
             files=[],
             duration=time_allocated[i],
             page_start=max(current_file_page, 1),
