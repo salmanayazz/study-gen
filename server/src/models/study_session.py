@@ -3,12 +3,14 @@ from sqlmodel import SQLModel, Field, Relationship
 from src.models.study_question import StudyQuestion, StudyQuestionRead
 from src.models.study_session_file_link import StudySessionFileLink
 from src.models.file import File, FileRead
+from datetime import datetime
 
 if TYPE_CHECKING:
     from src.models.study_plan import StudyPlan
 
 class StudySession(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    date: datetime
     duration: int
     files: List[int] = Field(default=None, foreign_key="file.id")
     page_start: int
@@ -23,6 +25,7 @@ class StudySession(SQLModel, table=True):
 
 class StudySessionRead(SQLModel):
     id: int
+    date: datetime
     duration: int
     files: List["FileRead"]
     page_start: int

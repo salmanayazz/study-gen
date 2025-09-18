@@ -4,6 +4,7 @@ from src.db import get_session
 from sqlmodel import Session, select
 import src.models.file as file_model
 from typing import Optional
+from PyPDF2 import PdfReader
 
 router = APIRouter()
 
@@ -18,7 +19,7 @@ async def get_files(course_id: int, session: Session = Depends(get_session)):
 async def upload(
     course_id: int, 
     name: str = Form(...), 
-    path: Optional[str] = Form(None), 
+    path: Optional[str] = Form(None),
     file_data: UploadFile = FastAPIFile(...), 
     session: Session = Depends(get_session)
 ):
@@ -40,9 +41,13 @@ async def upload(
         content = await file_data.read()
         f.write(content)
 
+    reader = PdfReader(file_path)
+    page_count = len(reader.pages)
+
     file = file_model.File(
         name=name,
         path=path,
+        page_count=page_count,
         course_id=course_id
     )
     session.add(file)

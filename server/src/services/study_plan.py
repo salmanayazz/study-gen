@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 import fitz
 import json
@@ -101,15 +102,18 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
 
     total_time = sum(time_allocated)
     pages_per_minute = total_pages / total_time if total_time > 0 else 0
-    pages_per_session = [int(pages_per_minute * time) for time in time_allocated]
+    pages_per_session = [int(round(pages_per_minute) * time) for time in time_allocated]
 
     
     current_file_page = 0
+    current_file = 0
     for i in range(len(pages_per_session)):
         study_session = StudySession(
             study_plan_id=study_plan_id,
+            date=study_plan_create.date + timedelta(days=i),
+            files=[],
             duration=time_allocated[i],
-            page_start=0,
+            page_start=max(current_file_page, 1),
             page_end=0
         )
 
@@ -117,21 +121,20 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
         session.commit()
         session.refresh(study_session)
 
-        for file in files:
-            full_path = os.path.join(folder_path + file.path, file.name)
+        while current_file < len(files) and pages_per_session[i] > 0:
+            full_path = os.path.join(folder_path + files[current_file].path, files[current_file].name)
             pdf = fitz.open(full_path)
 
-            link = StudySessionFileLink(study_session_id=study_session.id, file_id=file.id)
+            link = StudySessionFileLink(study_session_id=study_session.id, file_id=files[current_file].id)
             session.add(link)
 
-            if len(files) == 1:
-                study_session.page_start = current_file_page
-
+            # if we used up all pages in the current file, move to the next file
             if pages_per_session[i] - (pdf.page_count - current_file_page) >= 0:
                 pages_per_session[i] -= (pdf.page_count - current_file_page)
                 current_file_page = 0
+                current_file += 1
 
-                if pages_per_session[i] == 0:
+                if pages_per_session[i] <= 0 or current_file == len(files):
                     study_session.page_end = pdf.page_count
                     break
             else:
@@ -165,7 +168,11 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
             pdf = fitz.open(full_path)
             print(f"Processing {file.name}...")
 
-            for page_num in range(len(pdf)):
+            start_page = study_session.page_start - 1 if file == study_session.files[0] else 0
+            end_page = study_session.page_end if file == study_session.files[-1] else pdf.page_count
+
+            for page_num in range(start_page, end_page):
+
                 page = pdf.load_page(page_num)
                 page_content = page.get_text("text")
                 images = page.get_images(full=True)
@@ -184,7 +191,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                     image_paths.append(image_path)
 
                 response = client.chat(
-                    model="gemma3:12b",
+                    model="gemma3:4b-it-qat",
                     messages=[
                         {
                             "role": "user",

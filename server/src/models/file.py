@@ -10,7 +10,8 @@ class File(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     name: str
-    path: Optional[str] = None 
+    path: Optional[str] = None
+    page_count: Optional[int] = None 
 
     course_id: Optional[int] = Field(default=None, foreign_key="course.id")
     course: Optional["Course"] = Relationship(back_populates="files")
@@ -20,6 +21,7 @@ class FileRead(SQLModel):
     id: int
     name: str
     path: Optional[str]
+    page_count: int = None
     course_id: Optional[int]
 
     class Config:
