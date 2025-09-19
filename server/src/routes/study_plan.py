@@ -63,7 +63,7 @@ def update_study_question_answer(
         session: Session = Depends(get_session)
     ):
     
-    statement = select(StudyPlan).where(StudyPlan.course_id == course_id & StudyPlan.id == study_plan_id).options(selectinload(StudyPlan.study_sessions))
+    statement = select(StudyPlan).where((StudyPlan.course_id == course_id) & (StudyPlan.id == study_plan_id)).options(selectinload(StudyPlan.study_sessions))
     study_plan = session.exec(statement).first()
 
     if not study_plan:
