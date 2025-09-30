@@ -14,8 +14,18 @@ from src.models.study_session_file_link import StudySessionFileLink
 from src.models.file import File
 from typing import List
 from sqlalchemy.orm import selectinload
+from dotenv import load_dotenv
+import os
+from openai import OpenAI
+import base64
 
-client = Client(host='http://localhost:11434')
+load_dotenv()
+
+
+print("Loadding Ollama URL... " + os.getenv("OLLAMA_URL"))
+ollama_client = Client(host=os.getenv("OLLAMA_URL"))
+print("Loading OpenAI... " + os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 question_generation_prompt = """
 You are an exam question generator. Given the content of a single textbook or lecture page 
@@ -88,6 +98,7 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
     study_sessions = []
     files = []
 
+    # calculate page count and determine pages required per session
     total_pages = 0
     folder_path = "pdfs/"
     for fileId in study_plan_create.files:
@@ -104,7 +115,7 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
     pages_per_minute = total_pages / total_time if total_time > 0 else 0
     pages_per_session = [int(round(pages_per_minute) * time) for time in time_allocated]
 
-    
+    # calculate the slideshows and pages for each session 
     current_file_page = 0
     current_file = 0
     for i in range(len(pages_per_session)):
@@ -149,6 +160,50 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
 
     return study_sessions
 
+def get_llm_response(prompt: str, image_paths: List[str] = []):
+    # try ollama, if it fails, try openai
+    try:
+        response = ollama_client.chat(
+            model="gemma3:12b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                    "images": image_paths
+                }
+            ]
+        )
+        print("ollama response:")
+        print(response)
+        return response['message']['content']
+    except Exception as e:
+        print(f"Error communicating with Ollama: {e}")
+    
+    try:
+        content_blocks = [{"type": "text", "text": prompt}]
+
+        for image_path in image_paths:
+            with open(image_path, "rb") as img_file:
+                img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
+            content_blocks.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
+            })
+
+        resp = openai_client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[{"role": "user", "content": content_blocks}]
+        )
+
+        print("openai response:")
+        print(resp)
+        return resp.choices[0].message.content
+
+    except Exception as e:
+        print(f"Error communicating with OpenAI: {e}")
+        return None
+
+
 def create_study_plan_questions(study_plan_id: int, session: Session = Depends(get_session)):
     folder_path = "pdfs/"
     questions = []
@@ -161,6 +216,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
         .options(selectinload(StudySession.files))
     ).all()
 
+    # for each page in a study session, generate questions
     for study_session in study_sessions:
         for file in study_session.files:
             full_path = os.path.join(folder_path + file.path, file.name)
@@ -179,6 +235,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
 
                 print(f"Page {page_num + 1}")
 
+                # extract images from the page and save them temporarily
                 image_paths = []
                 for img_info in images:
                     xref = img_info[0]
@@ -190,22 +247,12 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                         f.write(image_bytes)
                     image_paths.append(image_path)
 
-                response = client.chat(
-                    model="gemma3:4b-it-qat",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": question_generation_prompt + page_content,
-                            "images": image_paths
-                        }
-                    ]
-                )
+                
+                question_set = get_llm_response(question_generation_prompt + page_content, image_paths)
 
                 for image_path in image_paths:
                     os.remove(image_path)
-
                 image_paths.clear()
-                question_set = response['message']['content']
 
                 try:
                     cleaned = re.sub(r'```json|```|```', '', question_set).strip()
@@ -244,17 +291,10 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                 questions.clear()
                             
 def validate_study_question_answer(question, sample_answer, user_answer) -> bool:
-    response = client.chat(
-        model="gemma3:12b",
-        messages=[
-            {
-                "role": "user",
-                "content": study_question_validation_prompt(question, sample_answer, user_answer),
-            }
-        ]
-    ) 
+    result = get_llm_response(
+        study_question_validation_prompt(question, sample_answer, user_answer)
+    )
 
-    result = response['message']['content']
     cleaned = re.sub(r'```json|```|```', '', result).strip()
     parsed_result = json.loads(cleaned)
     return parsed_result.get("correct")

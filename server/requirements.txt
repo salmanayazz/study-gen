@@ -4,9 +4,11 @@ huggingface-hub
 sentence-transformers
 pymupdf
 langchain_ollama
+langchain-community
 numpy
 fastapi[standard]
 sqlmodel
 python-dotenv
 psycopg2-binary>=2.9
 PyPDF2
+openai
