@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchFiles } from "@/app/course/[course_id]/file/page";
+import { fetchFiles } from "@/app/course/[course_id]/file/FileManagement";
 import type { File } from "@/types/file";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";

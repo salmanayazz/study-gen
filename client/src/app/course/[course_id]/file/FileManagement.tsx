@@ -1,12 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { deleteFile, uploadFile, fetchFiles } from "./page";
 import type { File } from "@/types/file";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { FiTrash } from "react-icons/fi";
+import type { File as FileModel } from "@/types/file";
+
+export async function fetchFiles(course_id: number): Promise<FileModel[]> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SERVER_URL}/course/${course_id}/file`
+  );
+  return res.ok ? res.json() : [];
+}
+
+async function uploadFile(
+  course_id: number,
+  name: string,
+  path: string,
+  fileData: Blob
+): Promise<void> {
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("path", path);
+  formData.append("file_data", fileData);
+
+  await fetch(
+    `${process.env.NEXT_PUBLIC_SERVER_URL}/course/${course_id}/file`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+}
+
+async function deleteFile(
+  course_id: number,
+  fileId: number
+): Promise<void> {
+  await fetch(
+    `${process.env.NEXT_PUBLIC_SERVER_URL}/course/${course_id}/file/${fileId}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
 
 interface FileManagementProps {
   course_id: number;
