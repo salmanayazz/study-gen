@@ -25,7 +25,12 @@ async def upload(
     file_data: UploadFile = FastAPIFile(...), 
     session: Session = Depends(get_session)
 ):
-    base_folder = os.path.abspath(folder_path +  "/" + str(course_id))
+    if len(path) > 0 and path[-1] != '/':
+        path += '/'
+    if path == '/':
+        path = ''
+
+    base_folder = os.path.abspath(folder_path + "/" + str(course_id))
     full_path = os.path.abspath(os.path.join(base_folder, path, name))
 
     if not full_path.startswith(base_folder):
@@ -63,7 +68,7 @@ async def delete_file(file_id: int, session: Session = Depends(get_session)):
     file = session.exec(statement).first()
 
     if not file:
-        raise HTTPException(status_code=400, detail="File does not exists")
+        raise HTTPException(status_code=404, detail="File does not exist")
     
     try: 
         os.remove(folder_path + file.path + file.name)

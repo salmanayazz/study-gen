@@ -7,6 +7,9 @@ import { useEffect, useState } from "react";
 import QuestionCard from "./QuestionCard";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import AIChatWindow from "./AIChatWindow";
 
 // no idea why this component has to be dynamically imported to work
 const PDFViewer = dynamic(() => import("./PDFViewer"), { ssr: false });
@@ -114,9 +117,23 @@ export default function StudySessionPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-4 h-screen flex flex-col">
-      <div>
-        <h1 className="text-3xl font-bold">Study Session</h1>
-        <h2 className="text-2xl font-semibold text-muted-foreground">{formatDate(studySession?.date)}</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Study Session</h1>
+          <h2 className="text-2xl font-semibold text-muted-foreground">{formatDate(studySession?.date)}</h2>
+          
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="mt-2">Ask AI</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Ask AI about your notes</DialogTitle>
+            </DialogHeader>
+            <AIChatWindow course_id={course_id} />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex flex-1 gap-6 overflow-hidden">

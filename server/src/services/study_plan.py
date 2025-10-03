@@ -3,29 +3,18 @@ import os
 import fitz
 import json
 import re
-from ollama import Client
 from fastapi import Depends, HTTPException
 from sqlmodel import Session, select
+from src.services import llm
 from src.db import get_session
 from src.models.study_question import StudyQuestion
 from src.models.study_plan import StudyPlanCreate
 from src.models.study_session import StudySession
 from src.models.study_session_file_link import StudySessionFileLink
 from src.models.file import File
-from typing import List
 from sqlalchemy.orm import selectinload
-from dotenv import load_dotenv
 import os
-from openai import OpenAI
-import base64
 
-load_dotenv()
-
-
-print("Loadding Ollama URL... " + os.getenv("OLLAMA_URL"))
-ollama_client = Client(host=os.getenv("OLLAMA_URL"))
-print("Loading OpenAI... " + os.getenv("OPENAI_API_KEY"))
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 question_generation_prompt = """
 You are an exam question generator. Given the content of a single textbook or lecture page 
@@ -160,50 +149,6 @@ def create_study_plan_sessions(study_plan_create: StudyPlanCreate, study_plan_id
 
     return study_sessions
 
-def get_llm_response(prompt: str, image_paths: List[str] = []):
-    # try ollama, if it fails, try openai
-    try:
-        response = ollama_client.chat(
-            model="gemma3:12b",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                    "images": image_paths
-                }
-            ]
-        )
-        print("ollama response:")
-        print(response)
-        return response['message']['content']
-    except Exception as e:
-        print(f"Error communicating with Ollama: {e}")
-    
-    try:
-        content_blocks = [{"type": "text", "text": prompt}]
-
-        for image_path in image_paths:
-            with open(image_path, "rb") as img_file:
-                img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
-            content_blocks.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
-            })
-
-        resp = openai_client.chat.completions.create(
-            model="gpt-4.1",
-            messages=[{"role": "user", "content": content_blocks}]
-        )
-
-        print("openai response:")
-        print(resp)
-        return resp.choices[0].message.content
-
-    except Exception as e:
-        print(f"Error communicating with OpenAI: {e}")
-        return None
-
-
 def create_study_plan_questions(study_plan_id: int, session: Session = Depends(get_session)):
     folder_path = "pdfs/"
     questions = []
@@ -248,7 +193,7 @@ def create_study_plan_questions(study_plan_id: int, session: Session = Depends(g
                     image_paths.append(image_path)
 
                 
-                question_set = get_llm_response(question_generation_prompt + page_content, image_paths)
+                question_set = llm.get_llm_response(question_generation_prompt + page_content, image_paths)
 
                 for image_path in image_paths:
                     os.remove(image_path)

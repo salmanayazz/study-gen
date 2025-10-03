@@ -10,7 +10,7 @@ class File(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     name: str
-    path: Optional[str] = None
+    path: Optional[str] = None # path contains trailing slash if not empty
     page_count: Optional[int] = None 
 
     course_id: Optional[int] = Field(default=None, foreign_key="course.id")

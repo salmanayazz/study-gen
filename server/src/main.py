@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from src.routes import routes, study_plan, file, course
+from src.routes import study_plan, file, course, question
 from sqlmodel import SQLModel
 from contextlib import asynccontextmanager
 from src.db import engine
@@ -25,9 +25,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-print("FRONTEND_URL", os.getenv("FRONTEND_URL"))
 
-app.include_router(routes.router)
+app.include_router(question.router)
 app.include_router(course.router)
 app.include_router(study_plan.router)
 app.include_router(file.router)
