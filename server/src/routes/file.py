@@ -7,6 +7,7 @@ from typing import Optional
 from PyPDF2 import PdfReader
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
+from fastapi import BackgroundTasks
 
 router = APIRouter()
 
@@ -75,7 +76,13 @@ async def delete_file(file_id: int, session: Session = Depends(get_session)):
     return {"message": "Successfully deleted file"}
 
 @router.get("/course/{course_id}/file/{file_id}")
-async def get_file(course_id: int, file_id: int, page_start: Optional[int] = None, page_end: Optional[int] = None, session: Session = Depends(get_session)):   
+async def get_file(
+    file_id: int, 
+    page_start: Optional[int] = None, 
+    page_end: Optional[int] = None, 
+    session: Session = Depends(get_session), 
+    background_tasks: BackgroundTasks = None,
+):   
     file = session.get(file_model.File, file_id)
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
@@ -97,9 +104,11 @@ async def get_file(course_id: int, file_id: int, page_start: Optional[int] = Non
         if not os.path.exists("temp_files"):
             os.makedirs("temp_files")
             
-        temp_path = f"temp_files/temp_{file.id}.pdf"
+        temp_path = f"temp_files/temp_{file.id}_{start}_{end}.pdf"
         doc.save(temp_path)
         doc.close()
+
+        background_tasks.add_task(os.remove, temp_path)
 
         return FileResponse(temp_path, filename=file.name, media_type="application/pdf")
 
