@@ -6,6 +6,10 @@ import type { StudySession } from "@/types/study-session";
 import { useEffect, useState } from "react";
 import QuestionCard from "./QuestionCard";
 import { useParams } from "next/navigation";
+import dynamic from "next/dynamic";
+
+// no idea why this component has to be dynamically imported to work
+const PDFViewer = dynamic(() => import("./PDFViewer"), { ssr: false });
 
 async function fetchStudySession(
   course_id: string,
@@ -46,8 +50,6 @@ async function answerStudyQuestion(
         body: JSON.stringify({ user_answer: userAnswer }),
       }
     );
-    console.log("Submitted answer, server response:");
-    console.log(response);
 
     return (await response.json()).correct;
   } catch (error) {
@@ -64,10 +66,6 @@ export default function StudySessionPage() {
 
   const [studySession, setStudySession] = useState<StudySession | undefined>(undefined);
   const [questions, setQuestions] = useState<StudyQuestion[]>([]);
-
-  useEffect(() => {
-    console.log(questions);
-  }, [questions]);
 
   useEffect(() => {
     const load = async () => {
@@ -115,25 +113,28 @@ export default function StudySessionPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Study Session</h1>
-      <h2 className="text-2xl font-semibold text-muted-foreground">
-        {formatDate(studySession?.date)}
-      </h2>
-      <div className="border-b" />
+    <div className="container mx-auto p-6 space-y-4 h-screen flex flex-col">
+      <div>
+        <h1 className="text-3xl font-bold">Study Session</h1>
+        <h2 className="text-2xl font-semibold text-muted-foreground">{formatDate(studySession?.date)}</h2>
+      </div>
 
-      <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-3">
-        {questions.map((q) => (
-          <QuestionCard
-            key={q.id}
-            question={q}
-            handleAnswer={handleAnswer}
-          />
-        ))}
+      <div className="flex flex-1 gap-6 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-2 rounded shadow-lg">
+          {studySession?.files.map((file, index) => (
+            <PDFViewer
+              key={file.id}
+              fileUrl={`${process.env.NEXT_PUBLIC_SERVER_URL}/course/${course_id}/file/${file.id}?page_start=${index === 0 ? studySession.page_start : 1}${index === studySession.files.length - 1 ? `&page_end=${studySession.page_end}` : ''}`}
+              fileName={file.name}
+            />
+          ))}
+        </div>
 
-        {questions.length === 0 && (
-          <p className="text-muted-foreground">No questions available.</p>
-        )}
+        <div className="flex-1 flex flex-col gap-4 p-2 rounded shadow-lg overflow-y-auto">
+          {questions.length ? questions.map((q) => (
+            <QuestionCard key={q.id} question={q} handleAnswer={handleAnswer} />
+          )) : <p className="text-muted-foreground">No questions available.</p>}
+        </div>
       </div>
     </div>
   );

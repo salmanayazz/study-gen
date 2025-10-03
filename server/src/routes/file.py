@@ -5,6 +5,8 @@ from sqlmodel import Session, select
 import src.models.file as file_model
 from typing import Optional
 from PyPDF2 import PdfReader
+from fastapi.responses import FileResponse
+from sqlmodel import Session, select
 
 router = APIRouter()
 
@@ -12,7 +14,6 @@ folder_path = "pdfs/"
 
 @router.get("/course/{course_id}/file")
 async def get_files(course_id: int, session: Session = Depends(get_session)):
-    print("Getting files for course_id:", course_id)
     return session.exec(select(file_model.File).where(file_model.File.course_id == course_id)).all()
 
 @router.post("/course/{course_id}/file", status_code=status.HTTP_201_CREATED)
@@ -72,3 +73,34 @@ async def delete_file(file_id: int, session: Session = Depends(get_session)):
     session.commit()
 
     return {"message": "Successfully deleted file"}
+
+@router.get("/course/{course_id}/file/{file_id}")
+async def get_file(course_id: int, file_id: int, page_start: Optional[int] = None, page_end: Optional[int] = None, session: Session = Depends(get_session)):   
+    file = session.get(file_model.File, file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    file_path = os.path.join(folder_path, file.path or "", file.name)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File missing on disk")
+
+    # extract pages if specified
+    if page_start is not None or page_end is not None:
+        import fitz
+        pdf = fitz.open(file_path)
+        start = page_start - 1 or 0 # page_start is 1-indexed
+        end = page_end or pdf.page_count
+        doc = fitz.open()
+        for i in range(start, min(end, pdf.page_count)):
+            doc.insert_pdf(pdf, from_page=i, to_page=i)
+        
+        if not os.path.exists("temp_files"):
+            os.makedirs("temp_files")
+            
+        temp_path = f"temp_files/temp_{file.id}.pdf"
+        doc.save(temp_path)
+        doc.close()
+
+        return FileResponse(temp_path, filename=file.name, media_type="application/pdf")
+
+    return FileResponse(file_path, filename=file.name, media_type="application/pdf")
